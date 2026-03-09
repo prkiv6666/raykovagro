@@ -209,7 +209,7 @@ export default function App() {
   }
 
   try {
-    const response = await fetch('https://raykovagro1-production.up.railway.app', {
+    const response = await fetch('https://ТВОЯТ-RAILWAY-АДРЕС/send-email', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -222,52 +222,20 @@ export default function App() {
     })
 
     const data = await response.json()
+    console.log('Response:', data)
 
     if (response.ok && data.success) {
       setSuccessMessage('Съобщението беше изпратено успешно.')
-      setFormData({
-        name: '',
-        email: '',
-        message: '',
-      })
+      setFormData({ name: '', email: '', message: '' })
       setErrors({})
     } else {
-      setSuccessMessage('Възникна грешка при изпращането.')
+      setSuccessMessage('Грешка при изпращането.')
     }
   } catch (error) {
-    console.error(error)
+    console.error('Fetch error:', error)
     setSuccessMessage('Сървърът не отговаря.')
   }
-
-  const data = await response.json()
-  console.log(data)
-
-  if (response.ok) {
-    setSuccessMessage("Съобщението беше изпратено успешно.")
-    setFormData({ name: "", email: "", message: "" })
-  } else {
-    setSuccessMessage("Възникна грешка.")
-  }
-  setErrors({})
-  setSuccessMessage('Изпращане...')
-
-  await sendEmail()
-
-  setFormData({
-    name: '',
-    email: '',
-    message: '',
-  })
-
-    setErrors({})
-    setSuccessMessage('Вашето запитване е подготвено успешно.')
-
-    setFormData({
-      name: '',
-      email: '',
-      message: '',
-    })
-  }
+}
 
   const closeMobileMenu = () => setMenuOpen(false)
 
