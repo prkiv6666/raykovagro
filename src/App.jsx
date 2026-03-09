@@ -209,7 +209,7 @@ export default function App() {
   }
 
   try {
-    const response = await fetch('https://ТВОЯТ-RAILWAY-АДРЕС/send-email', {
+    const response = await fetch('https://raykovagro1-production.up.railway.app/send-email', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
