@@ -209,17 +209,17 @@ export default function App() {
   }
 
   try {
-    const response = await fetch('https://raykovagro1-production.up.railway.app/send-email', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        name: formData.name,
-        email: formData.email,
-        message: formData.message,
-      }),
-    })
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/send-email`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    name: formData.name,
+    email: formData.email,
+    message: formData.message,
+  }),
+})
 
     const data = await response.json()
     console.log('Response:', data)
