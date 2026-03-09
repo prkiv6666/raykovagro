@@ -13,41 +13,40 @@ app.get("/", (req, res) => {
 })
 
 app.post("/send-email", async (req, res) => {
-  console.log("BODY:", req.body)
-
   const { name, email, message } = req.body || {}
 
   if (!name || !email || !message) {
     return res.status(400).json({
       success: false,
-      error: "Missing name, email or message",
+      error: "Missing fields",
     })
   }
 
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
-      user: "raikovpresiyan@gmail.com",
-      pass: "qzqk jksx tclj qxsg",
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_PASS,
     },
   })
 
   try {
     await transporter.sendMail({
-      from: "yourgmail@gmail.com",
+      from: process.env.GMAIL_USER,
       replyTo: email,
-      to: "yourgmail@gmail.com",
+      to: process.env.GMAIL_USER,
       subject: "Ново запитване от сайта",
       text: `Име: ${name}\nИмейл: ${email}\n\nСъобщение:\n${message}`,
     })
 
     res.json({ success: true })
   } catch (error) {
-    console.error("MAIL ERROR:", error)
-    res.status(500).json({ success: false, error: "Mail send failed" })
+    console.error(error)
+    res.status(500).json({ success: false })
   }
 })
 
-app.listen(5000, () => {
-  console.log("Server running on port 5000")
+const PORT = process.env.PORT || 5000
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`)
 })
