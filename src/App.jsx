@@ -209,7 +209,7 @@ export default function App() {
   }
 
   try {
-    const response = await fetch('http://raykovagro1-production.up.railway.app', {
+    const response = await fetch('https://raykovagro1-production.up.railway.app', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
