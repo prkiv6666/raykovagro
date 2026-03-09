@@ -209,17 +209,17 @@ export default function App() {
   }
 
   try {
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/send-email`, {
+    console.log('API URL:', import.meta.env.VITE_API_URL);
+    const API_URL = import.meta.env.VITE_API_URL;
+console.log('FINAL API URL:', API_URL);
+
+const response = await fetch(`${API_URL}/send-email`, {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
   },
-  body: JSON.stringify({
-    name: formData.name,
-    email: formData.email,
-    message: formData.message,
-  }),
-})
+  body: JSON.stringify(formData),
+});
 
     const data = await response.json()
     console.log('Response:', data)
