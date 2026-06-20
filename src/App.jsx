@@ -781,7 +781,7 @@ export default function App() {
                       <p><span className="font-bold text-white">Фирма:</span> RAYKOV NO-TILL AGRO ЕООД</p>
                       <p>
                         <span className="font-bold text-white">Телефон:</span>{' '}
-                        <a href="tel:+359898360605" className="transition hover:text-[#e8dfcb]">+359 898 360 605</a>
+                        <a href="tel:+359893319444" className="transition hover:text-[#e8dfcb]">+359 893 319 444</a>
                       </p>
                       <p>
                         <span className="font-bold text-white">Имейл:</span>{' '}
