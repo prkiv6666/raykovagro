@@ -3,3 +3,8 @@
 html {
   scroll-behavior: smooth;
 }
+
+/* Offset anchor targets so the sticky header doesn't cover section titles */
+section[id] {
+  scroll-margin-top: 96px;
+}

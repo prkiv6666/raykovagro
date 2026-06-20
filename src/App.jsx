@@ -1,14 +1,15 @@
-import { motion, AnimatePresence } from 'framer-motion'
-import { useEffect, useState } from 'react'
-import emailjs from '@emailjs/browser'
+import { motion, AnimatePresence, useInView, useReducedMotion } from 'framer-motion'
+import { useEffect, useRef, useState } from 'react'
 
 function Counter({ value }) {
   const numeric = parseInt(value, 10)
   const suffix = isNaN(numeric) ? '' : value.replace(String(numeric), '')
   const [count, setCount] = useState(0)
+  const ref = useRef(null)
+  const inView = useInView(ref, { once: true, margin: '-40px' })
 
   useEffect(() => {
-    if (isNaN(numeric)) return
+    if (isNaN(numeric) || !inView) return
 
     let current = 0
     const end = numeric
@@ -29,20 +30,41 @@ function Counter({ value }) {
     }, stepTime)
 
     return () => clearInterval(timer)
-  }, [numeric])
+  }, [numeric, inView])
 
-  if (isNaN(numeric)) return <>{value}</>
+  if (isNaN(numeric)) return <span ref={ref}>{value}</span>
 
   return (
-    <>
+    <span ref={ref}>
       {count}
       {suffix}
-    </>
+    </span>
+  )
+}
+
+function Reveal({ children, className, delay = 0 }) {
+  const reduceMotion = useReducedMotion()
+
+  if (reduceMotion) {
+    return <div className={className}>{children}</div>
+  }
+
+  return (
+    <motion.div
+      className={className}
+      initial={{ opacity: 0, y: 28 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-80px' }}
+      transition={{ duration: 0.6, ease: 'easeOut', delay }}
+    >
+      {children}
+    </motion.div>
   )
 }
 
 export default function App() {
   const [menuOpen, setMenuOpen] = useState(false)
+  const reduceMotion = useReducedMotion()
 
   const [formData, setFormData] = useState({
     name: '',
@@ -177,66 +199,42 @@ export default function App() {
     return newErrors
   }
 
-  const sendEmail = async () => {
-  try {
-    await emailjs.send(
-      'service_4fltdbc',
-      'template_t8dtw4l',
-      {
-        from_name: formData.name,
-        reply_to: formData.email,
-        message: formData.message,
-      },
-      'LtTK0PTzIHQy9mueb'
-    )
-
-    setSuccessMessage('Съобщението беше изпратено успешно.')
-  } catch (error) {
-    setSuccessMessage('Възникна грешка при изпращането. Опитай отново.')
-    console.error(error)
-  }
-}
-
   const handleSubmit = async (e) => {
-  e.preventDefault()
+    e.preventDefault()
 
-  const validationErrors = validateForm()
+    const validationErrors = validateForm()
 
-  if (Object.keys(validationErrors).length > 0) {
-    setErrors(validationErrors)
-    setSuccessMessage('')
-    return
-  }
-
-  try {
-    console.log('API URL:', import.meta.env.VITE_API_URL)
-    
-    const API_URL = import.meta.env.VITE_API_URL;
-console.log('FINAL API URL:', API_URL);
-
-const response = await fetch(`${API_URL}/send-email`, {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify(formData),
-});
-
-    const data = await response.json()
-    console.log('Response:', data)
-
-    if (response.ok && data.success) {
-      setSuccessMessage('Съобщението беше изпратено успешно.')
-      setFormData({ name: '', email: '', message: '' })
-      setErrors({})
-    } else {
-      setSuccessMessage('Грешка при изпращането.')
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors)
+      setSuccessMessage('')
+      return
     }
-  } catch (error) {
-    console.error('Fetch error:', error)
-    setSuccessMessage('Сървърът не отговаря.')
+
+    try {
+      const API_URL = import.meta.env.VITE_API_URL
+
+      const response = await fetch(`${API_URL}/send-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        setSuccessMessage('Съобщението беше изпратено успешно.')
+        setFormData({ name: '', email: '', message: '' })
+        setErrors({})
+      } else {
+        setSuccessMessage('Грешка при изпращането.')
+      }
+    } catch (error) {
+      console.error('Fetch error:', error)
+      setSuccessMessage('Сървърът не отговаря.')
+    }
   }
-}
 
   const closeMobileMenu = () => setMenuOpen(false)
 
@@ -258,7 +256,7 @@ const response = await fetch(`${API_URL}/send-email`, {
                 RAYKOV NO-TILL AGRO
               </h1>
               <p className="text-xs uppercase tracking-[0.3em] text-white/70 md:text-sm">
-                
+                Устойчиво земеделие
               </p>
             </div>
           </div>
@@ -280,8 +278,9 @@ const response = await fetch(`${API_URL}/send-email`, {
             onClick={() => setMenuOpen((prev) => !prev)}
             className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white lg:hidden"
             aria-label="Отвори меню"
+            aria-expanded={menuOpen}
           >
-            <span className="text-xl">{menuOpen ? '✕' : '☰'}</span>
+            <span className="text-xl" aria-hidden="true">{menuOpen ? '✕' : '☰'}</span>
           </button>
         </div>
 
@@ -316,7 +315,7 @@ const response = await fetch(`${API_URL}/send-email`, {
           id="home"
           className="relative overflow-hidden bg-[radial-gradient(circle_at_top_right,rgba(218,209,188,0.22),transparent_28%),linear-gradient(135deg,#145a2a_0%,#103d22_52%,#0b2616_100%)] text-white"
         >
-          <div className="absolute inset-0 overflow-hidden opacity-90">
+          <div className="absolute inset-0 overflow-hidden opacity-90" aria-hidden="true">
             <div className="absolute bottom-10 right-16 hidden md:block [transform:perspective(900px)_rotateX(62deg)_rotateZ(-14deg)] origin-bottom-right opacity-75">
               <div className="grid grid-cols-5 gap-2 rounded-[1.5rem] border border-white/10 bg-white/5 p-4 shadow-2xl backdrop-blur-sm">
                 {Array.from({ length: 10 }).map((_, index) => (
@@ -329,20 +328,20 @@ const response = await fetch(`${API_URL}/send-email`, {
             </div>
 
             <motion.div
-              className="fixed right-20 top-20 z-40 h-24 w-24 rounded-full bg-[#f5d96b] blur-sm"
-              animate={{ scale: [1, 1.08, 1], opacity: [0.9, 1, 0.9] }}
+              className="absolute right-20 top-20 h-24 w-24 rounded-full bg-[#f5d96b] blur-sm"
+              animate={reduceMotion ? undefined : { scale: [1, 1.08, 1], opacity: [0.9, 1, 0.9] }}
               transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
             />
 
             <motion.div
-              className="fixed right-16 top-12 z-30 h-40 w-40 rounded-full border border-[#f8e7a1]/40"
-              animate={{ scale: [1, 1.15, 1], opacity: [0.25, 0.45, 0.25] }}
+              className="absolute right-16 top-12 h-40 w-40 rounded-full border border-[#f8e7a1]/40"
+              animate={reduceMotion ? undefined : { scale: [1, 1.15, 1], opacity: [0.25, 0.45, 0.25] }}
               transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
             />
 
             <motion.div
-              className="fixed right-8 top-0 z-20 h-64 w-64 rounded-full border border-[#f8e7a1]/20"
-              animate={{ scale: [1, 1.18, 1], opacity: [0.15, 0.28, 0.15] }}
+              className="absolute right-8 top-0 h-64 w-64 rounded-full border border-[#f8e7a1]/20"
+              animate={reduceMotion ? undefined : { scale: [1, 1.18, 1], opacity: [0.15, 0.28, 0.15] }}
               transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
             />
 
@@ -351,20 +350,20 @@ const response = await fetch(`${API_URL}/send-email`, {
             <div className="absolute inset-x-0 bottom-0 h-40 overflow-hidden">
               <motion.div
                 className="absolute bottom-0 left-0 h-32 w-[140%] bg-[repeating-linear-gradient(90deg,rgba(245,214,120,0.95)_0px,rgba(245,214,120,0.95)_2px,transparent_2px,transparent_16px)] [clip-path:polygon(0_100%,3%_20%,6%_100%,9%_28%,12%_100%,15%_18%,18%_100%,21%_32%,24%_100%,27%_22%,30%_100%,33%_26%,36%_100%,39%_18%,42%_100%,45%_24%,48%_100%,51%_20%,54%_100%,57%_30%,60%_100%,63%_18%,66%_100%,69%_28%,72%_100%,75%_22%,78%_100%,81%_30%,84%_100%,87%_18%,90%_100%,93%_26%,96%_100%,100%_24%)] opacity-70"
-                animate={{ x: [0, -40, 0] }}
+                animate={reduceMotion ? undefined : { x: [0, -40, 0] }}
                 transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
               />
 
               <motion.div
                 className="absolute bottom-0 left-0 h-28 w-[150%] bg-[repeating-linear-gradient(90deg,rgba(232,198,96,0.85)_0px,rgba(232,198,96,0.85)_2px,transparent_2px,transparent_18px)] [clip-path:polygon(0_100%,2%_28%,4%_100%,6%_18%,8%_100%,10%_32%,12%_100%,14%_20%,16%_100%,18%_26%,20%_100%,22%_18%,24%_100%,26%_30%,28%_100%,30%_24%,32%_100%,34%_18%,36%_100%,38%_28%,40%_100%,42%_22%,44%_100%,46%_30%,48%_100%,50%_18%,52%_100%,54%_26%,56%_100%,58%_20%,60%_100%,62%_30%,64%_100%,66%_18%,68%_100%,70%_24%,72%_100%,74%_22%,76%_100%,78%_30%,80%_100%,82%_18%,84%_100%,86%_26%,88%_100%,90%_20%,92%_100%,94%_32%,96%_100%,98%_18%,100%_100%)] opacity-65"
-                animate={{ x: [0, 35, 0] }}
+                animate={reduceMotion ? undefined : { x: [0, 35, 0] }}
                 transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
               />
             </div>
 
             <motion.div
               className="absolute bottom-14 left-[-260px]"
-              animate={{ x: ['-30vw', '115vw'] }}
+              animate={reduceMotion ? undefined : { x: ['-30vw', '115vw'] }}
               transition={{ duration: 18, repeat: Infinity, ease: 'linear' }}
             >
               <div className="relative h-24 w-44">
@@ -385,7 +384,7 @@ const response = await fetch(`${API_URL}/send-email`, {
           </div>
 
           <div className="relative mx-auto grid max-w-[1800px] gap-12 px-6 py-20 lg:grid-cols-[1.2fr_0.8fr] lg:items-center lg:py-28">
-            <div>
+            <Reveal>
               <p className="mb-4 inline-flex rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs uppercase tracking-[0.3em] text-white/90 shadow-lg">
                 Устойчиво земеделие и модерно развитие
               </p>
@@ -415,9 +414,9 @@ const response = await fetch(`${API_URL}/send-email`, {
                   Свържи се с нас
                 </a>
               </div>
-            </div>
+            </Reveal>
 
-            <div className="grid gap-5">
+            <Reveal delay={0.15} className="grid gap-5">
               <div className="rounded-[2rem] border border-white/10 bg-white/10 p-7 shadow-2xl backdrop-blur-xl">
                 <p className="text-sm uppercase tracking-[0.28em] text-white/65">Профил на стопанството</p>
                 <h3 className="mt-3 text-2xl font-bold">Земеделие, овощни насаждения и енергийна устойчивост</h3>
@@ -440,13 +439,13 @@ const response = await fetch(`${API_URL}/send-email`, {
                   </div>
                 ))}
               </div>
-            </div>
+            </Reveal>
           </div>
         </section>
 
         <section id="achievements" className="pb-24 pt-24">
           <div className="mx-auto max-w-7xl px-6">
-            <div className="mb-10 text-center">
+            <Reveal className="mb-10 text-center">
               <p className="text-sm font-bold uppercase tracking-[0.28em] text-[#145a2a]">
                 Какво сме постигнали
               </p>
@@ -456,32 +455,31 @@ const response = await fetch(`${API_URL}/send-email`, {
               <p className="mx-auto mt-4 max-w-3xl leading-8 text-stone-700">
                 Комбинираме земеделие, овощни насаждения и енергийна ефективност в една модерна и дългосрочно развиваща се структура.
               </p>
-            </div>
+            </Reveal>
 
             <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-              {achievements.map((item) => (
-                <div
-                  key={item.title}
-                  className="rounded-[2rem] border border-[#e5ddcc] bg-white p-6 shadow-[0_20px_50px_rgba(20,90,42,0.08)] transition duration-300 hover:-translate-y-2 hover:shadow-[0_25px_60px_rgba(20,90,42,0.12)]"
-                >
-                  <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#145a2a]/10 text-3xl">
-                    {item.icon}
+              {achievements.map((item, index) => (
+                <Reveal key={item.title} delay={index * 0.1}>
+                  <div className="h-full rounded-[2rem] border border-[#e5ddcc] bg-white p-6 shadow-[0_20px_50px_rgba(20,90,42,0.08)] transition duration-300 hover:-translate-y-2 hover:shadow-[0_25px_60px_rgba(20,90,42,0.12)]">
+                    <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#145a2a]/10 text-3xl" aria-hidden="true">
+                      {item.icon}
+                    </div>
+                    <p className="text-sm font-bold uppercase tracking-[0.22em] text-[#145a2a]">
+                      <Counter value={item.value} />
+                    </p>
+                    <h3 className="mt-3 text-2xl font-black text-[#14311f]">{item.title}</h3>
+                    <p className="mt-4 leading-7 text-stone-700">{item.text}</p>
                   </div>
-                  <p className="text-sm font-bold uppercase tracking-[0.22em] text-[#145a2a]">
-                    <Counter value={item.value} />
-                  </p>
-                  <h3 className="mt-3 text-2xl font-black text-[#14311f]">{item.title}</h3>
-                  <p className="mt-4 leading-7 text-stone-700">{item.text}</p>
-                </div>
+                </Reveal>
               ))}
             </div>
           </div>
         </section>
 
         <section id="about" className="relative mx-auto max-w-7xl px-6 py-24">
-          <div className="absolute inset-x-6 top-12 h-64 rounded-[3rem] bg-gradient-to-r from-[#145a2a]/10 to-transparent blur-3xl" />
+          <div className="absolute inset-x-6 top-12 h-64 rounded-[3rem] bg-gradient-to-r from-[#145a2a]/10 to-transparent blur-3xl" aria-hidden="true" />
           <div className="relative grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
-            <div>
+            <Reveal>
               <p className="mb-3 text-sm font-bold uppercase tracking-[0.28em] text-[#145a2a]">
                 За нас
               </p>
@@ -498,57 +496,60 @@ const response = await fetch(`${API_URL}/send-email`, {
                 Работим с търговски и преработвателни фирми, като предлагаме предвидимост,
                 коректност и възможност за стабилни дългосрочни партньорства.
               </p>
-            </div>
+            </Reveal>
 
-            <div className="rounded-[2.25rem] border border-[#d8d1c3] bg-white/80 p-8 shadow-[0_30px_80px_rgba(20,90,42,0.08)] backdrop-blur-sm">
-              <div className="mb-6 flex items-center gap-3">
-                <div className="h-3 w-3 rounded-full bg-[#145a2a]" />
-                <h3 className="text-2xl font-bold text-[#14311f]">Основни акценти</h3>
-              </div>
+            <Reveal delay={0.15}>
+              <div className="rounded-[2.25rem] border border-[#d8d1c3] bg-white/80 p-8 shadow-[0_30px_80px_rgba(20,90,42,0.08)] backdrop-blur-sm">
+                <div className="mb-6 flex items-center gap-3">
+                  <div className="h-3 w-3 rounded-full bg-[#145a2a]" />
+                  <h3 className="text-2xl font-bold text-[#14311f]">Основни акценти</h3>
+                </div>
 
-              <div className="grid gap-4">
-                {highlights.map((item) => (
-                  <div
-                    key={item}
-                    className="rounded-2xl border border-[#ebe5d6] bg-[#faf8f2] px-5 py-4 text-stone-700 shadow-sm"
-                  >
-                    {item}
-                  </div>
-                ))}
+                <div className="grid gap-4">
+                  {highlights.map((item) => (
+                    <div
+                      key={item}
+                      className="rounded-2xl border border-[#ebe5d6] bg-[#faf8f2] px-5 py-4 text-stone-700 shadow-sm"
+                    >
+                      {item}
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            </Reveal>
           </div>
         </section>
 
         <section id="crops" className="bg-white/70 py-24">
           <div className="mx-auto max-w-7xl px-6">
-            <p className="mb-3 text-sm font-bold uppercase tracking-[0.28em] text-[#145a2a]">
-              Дейности и култури
-            </p>
-            <h2 className="mb-14 text-3xl font-black text-[#14311f] md:text-5xl">
-              Основни направления в стопанството
-            </h2>
+            <Reveal>
+              <p className="mb-3 text-sm font-bold uppercase tracking-[0.28em] text-[#145a2a]">
+                Дейности и култури
+              </p>
+              <h2 className="mb-14 text-3xl font-black text-[#14311f] md:text-5xl">
+                Основни направления в стопанството
+              </h2>
+            </Reveal>
 
             <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-              {crops.map((crop) => (
-                <article
-                  key={crop.title}
-                  className="group rounded-[2rem] border border-[#ebe4d4] bg-[#fcfbf8] p-6 shadow-[0_12px_30px_rgba(20,90,42,0.06)] transition duration-300 hover:-translate-y-2 hover:shadow-[0_25px_50px_rgba(20,90,42,0.12)]"
-                >
-                  <div className="mb-5 flex items-center justify-between">
-                    <span className="rounded-full bg-[#145a2a]/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-[#145a2a]">
-                      {crop.stat}
-                    </span>
-                  </div>
-                  <h3 className="mb-4 text-2xl font-black text-[#14311f]">{crop.title}</h3>
-                  <p className="mb-8 leading-7 text-stone-700">{crop.text}</p>
-                  <a
-                    href="#contact"
-                    className="inline-flex rounded-xl bg-[#145a2a] px-4 py-3 text-sm font-bold uppercase tracking-[0.12em] text-white transition group-hover:bg-[#103d22]"
-                  >
-                    Запитване
-                  </a>
-                </article>
+              {crops.map((crop, index) => (
+                <Reveal key={crop.title} delay={index * 0.1}>
+                  <article className="group h-full rounded-[2rem] border border-[#ebe4d4] bg-[#fcfbf8] p-6 shadow-[0_12px_30px_rgba(20,90,42,0.06)] transition duration-300 hover:-translate-y-2 hover:shadow-[0_25px_50px_rgba(20,90,42,0.12)]">
+                    <div className="mb-5 flex items-center justify-between">
+                      <span className="rounded-full bg-[#145a2a]/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-[#145a2a]">
+                        {crop.stat}
+                      </span>
+                    </div>
+                    <h3 className="mb-4 text-2xl font-black text-[#14311f]">{crop.title}</h3>
+                    <p className="mb-8 leading-7 text-stone-700">{crop.text}</p>
+                    <a
+                      href="#contact"
+                      className="inline-flex rounded-xl bg-[#145a2a] px-4 py-3 text-sm font-bold uppercase tracking-[0.12em] text-white transition group-hover:bg-[#103d22]"
+                    >
+                      Запитване
+                    </a>
+                  </article>
+                </Reveal>
               ))}
             </div>
           </div>
@@ -557,7 +558,7 @@ const response = await fetch(`${API_URL}/send-email`, {
         <section id="orchard" className="py-24">
           <div className="mx-auto max-w-7xl px-6">
             <div className="grid gap-10 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
-              <div>
+              <Reveal>
                 <p className="mb-3 text-sm font-bold uppercase tracking-[0.28em] text-[#145a2a]">
                   Сливова градина
                 </p>
@@ -573,15 +574,18 @@ const response = await fetch(`${API_URL}/send-email`, {
                   Използваме реално изображение на градината, за да покажем мащаба и подредбата на
                   насажденията като част от нашето земеделско портфолио.
                 </p>
-              </div>
+              </Reveal>
 
-              <div className="overflow-hidden rounded-[2.5rem] border border-[#e5ddcc] bg-white p-3 shadow-[0_20px_60px_rgba(20,90,42,0.08)]">
-                <img
-                  src="/image.png"
-                  alt="Сливова градина - 100 декара"
-                  className="h-full w-full rounded-[2rem] object-cover shadow-lg"
-                />
-              </div>
+              <Reveal delay={0.15}>
+                <div className="overflow-hidden rounded-[2.5rem] border border-[#e5ddcc] bg-white p-3 shadow-[0_20px_60px_rgba(20,90,42,0.08)]">
+                  <img
+                    src="/image.png"
+                    alt="Сливова градина - 100 декара"
+                    loading="lazy"
+                    className="h-full w-full rounded-[2rem] object-cover shadow-lg"
+                  />
+                </div>
+              </Reveal>
             </div>
           </div>
         </section>
@@ -589,7 +593,7 @@ const response = await fetch(`${API_URL}/send-email`, {
         <section id="base" className="bg-white py-24">
           <div className="mx-auto max-w-7xl px-6">
             <div className="grid gap-12 md:grid-cols-2 md:items-center">
-              <div>
+              <Reveal>
                 <p className="text-sm font-bold uppercase tracking-[0.28em] text-[#145a2a]">
                   Нашата база
                 </p>
@@ -605,22 +609,25 @@ const response = await fetch(`${API_URL}/send-email`, {
                   Локацията позволява бърз достъп до обработваемите площи, овощните насаждения и
                   фотоволтаичната централа, което осигурява ефективна работа и устойчиво развитие.
                 </p>
-              </div>
+              </Reveal>
 
-              <div className="overflow-hidden rounded-[2.5rem] border border-[#e5ddcc] bg-[#faf8f3] p-3 shadow-[0_20px_60px_rgba(20,90,42,0.08)]">
-                <img
-                  src="/base.jpeg"
-                  alt="База на RAYKOV NO-TILL AGRO"
-                  className="h-full w-full rounded-[2rem] object-cover shadow-lg"
-                />
-              </div>
+              <Reveal delay={0.15}>
+                <div className="overflow-hidden rounded-[2.5rem] border border-[#e5ddcc] bg-[#faf8f3] p-3 shadow-[0_20px_60px_rgba(20,90,42,0.08)]">
+                  <img
+                    src="/base.jpeg"
+                    alt="База на RAYKOV NO-TILL AGRO"
+                    loading="lazy"
+                    className="h-full w-full rounded-[2rem] object-cover shadow-lg"
+                  />
+                </div>
+              </Reveal>
             </div>
           </div>
         </section>
 
         <section id="energy" className="py-24">
           <div className="mx-auto max-w-7xl px-6">
-            <div className="mb-10 text-center">
+            <Reveal className="mb-10 text-center">
               <p className="text-sm font-bold uppercase tracking-[0.28em] text-[#145a2a]">
                 Енергийна система
               </p>
@@ -632,51 +639,55 @@ const response = await fetch(`${API_URL}/send-email`, {
                 и батерии за съхранение на електрическа енергия, които подпомагат по-ефективното
                 използване на произведения ресурс.
               </p>
-            </div>
+            </Reveal>
 
             <div className="mb-8 grid gap-6 lg:grid-cols-2">
-              <div className="rounded-[2.25rem] border border-white/10 bg-[linear-gradient(135deg,rgba(10,36,21,0.96),rgba(20,90,42,0.92))] p-8 text-white shadow-[0_25px_70px_rgba(16,61,34,0.28)]">
-                <p className="text-sm font-bold uppercase tracking-[0.28em] text-white/70">
-                  Соларна енергия
-                </p>
-                <div className="mt-5 flex items-end gap-2 overflow-hidden rounded-[1.75rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] px-5 pb-5 pt-10">
-                  <div className="grid flex-1 grid-cols-4 gap-2 [transform:perspective(800px)_rotateX(58deg)] origin-bottom">
-                    {Array.from({ length: 12 }).map((_, index) => (
-                      <div
-                        key={index}
-                        className="aspect-[1.25/1] rounded-md border border-sky-200/25 bg-[linear-gradient(180deg,#183a57,#0e2336)] shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]"
-                      >
-                        <div className="grid h-full grid-cols-2 gap-px p-1 opacity-80">
-                          <span className="rounded-[2px] bg-sky-100/10" />
-                          <span className="rounded-[2px] bg-sky-100/10" />
-                          <span className="rounded-[2px] bg-sky-100/10" />
-                          <span className="rounded-[2px] bg-sky-100/10" />
+              <Reveal>
+                <div className="h-full rounded-[2.25rem] border border-white/10 bg-[linear-gradient(135deg,rgba(10,36,21,0.96),rgba(20,90,42,0.92))] p-8 text-white shadow-[0_25px_70px_rgba(16,61,34,0.28)]">
+                  <p className="text-sm font-bold uppercase tracking-[0.28em] text-white/70">
+                    Соларна енергия
+                  </p>
+                  <div className="mt-5 flex items-end gap-2 overflow-hidden rounded-[1.75rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] px-5 pb-5 pt-10" aria-hidden="true">
+                    <div className="grid flex-1 grid-cols-4 gap-2 [transform:perspective(800px)_rotateX(58deg)] origin-bottom">
+                      {Array.from({ length: 12 }).map((_, index) => (
+                        <div
+                          key={index}
+                          className="aspect-[1.25/1] rounded-md border border-sky-200/25 bg-[linear-gradient(180deg,#183a57,#0e2336)] shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]"
+                        >
+                          <div className="grid h-full grid-cols-2 gap-px p-1 opacity-80">
+                            <span className="rounded-[2px] bg-sky-100/10" />
+                            <span className="rounded-[2px] bg-sky-100/10" />
+                            <span className="rounded-[2px] bg-sky-100/10" />
+                            <span className="rounded-[2px] bg-sky-100/10" />
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                    <div className="h-24 w-2 rounded-full bg-white/10" />
                   </div>
-                  <div className="h-24 w-2 rounded-full bg-white/10" />
+                  <h3 className="mt-6 text-3xl font-black">Слънчеви панели, 500 kW централа и батерии</h3>
+                  <p className="mt-4 max-w-xl leading-8 text-white/85">
+                    Фотоволтаичната система на стопанството включва соларна централа и система за
+                    съхранение на енергия, които позволяват по-голяма ефективност и енергийна независимост.
+                  </p>
                 </div>
-                <h3 className="mt-6 text-3xl font-black">Слънчеви панели, 500 kW централа и батерии</h3>
-                <p className="mt-4 max-w-xl leading-8 text-white/85">
-                  Фотоволтаичната система на стопанството включва соларна централа и система за
-                  съхранение на енергия, които позволяват по-голяма ефективност и енергийна независимост.
-                </p>
-              </div>
+              </Reveal>
 
-              <div className="rounded-[2.25rem] border border-[#e6dece] bg-[#fbfaf6] p-8 shadow-[0_20px_60px_rgba(20,90,42,0.07)] transition hover:-translate-y-1">
-                <p className="text-sm font-bold uppercase tracking-[0.28em] text-[#145a2a]">
-                  Съхранение на енергия
-                </p>
-                <h3 className="mt-4 text-3xl font-black text-[#14311f]">
-                  Батерийна система за по-висока ефективност
-                </h3>
-                <p className="mt-4 max-w-xl leading-8 text-stone-700">
-                  Системата за съхранение на електроенергия подпомага по-доброто управление на
-                  произведената енергия, повишава ефективността и допринася за по-голяма енергийна
-                  независимост на стопанството.
-                </p>
-              </div>
+              <Reveal delay={0.15}>
+                <div className="h-full rounded-[2.25rem] border border-[#e6dece] bg-[#fbfaf6] p-8 shadow-[0_20px_60px_rgba(20,90,42,0.07)] transition hover:-translate-y-1">
+                  <p className="text-sm font-bold uppercase tracking-[0.28em] text-[#145a2a]">
+                    Съхранение на енергия
+                  </p>
+                  <h3 className="mt-4 text-3xl font-black text-[#14311f]">
+                    Батерийна система за по-висока ефективност
+                  </h3>
+                  <p className="mt-4 max-w-xl leading-8 text-stone-700">
+                    Системата за съхранение на електроенергия подпомага по-доброто управление на
+                    произведената енергия, повишава ефективността и допринася за по-голяма енергийна
+                    независимост на стопанството.
+                  </p>
+                </div>
+              </Reveal>
             </div>
           </div>
         </section>
@@ -684,156 +695,173 @@ const response = await fetch(`${API_URL}/send-email`, {
         <section id="notill" className="py-24">
           <div className="mx-auto max-w-7xl px-6">
             <div className="grid gap-8 lg:grid-cols-[1fr_1fr] lg:items-center">
-              <div className="rounded-[2.5rem] bg-[linear-gradient(180deg,#163f27,#102f1d)] p-10 text-white shadow-[0_30px_80px_rgba(16,61,34,0.25)]">
-                <p className="text-sm font-bold uppercase tracking-[0.28em] text-white/70">No-Till</p>
-                <h2 className="mt-4 text-3xl font-black leading-tight md:text-5xl">
-                  Устойчиво земеделие без излишна намеса в почвата
-                </h2>
-                <p className="mt-6 max-w-xl leading-8 text-white/85">
-                  No-till технологията е в основата на нашата работа. Чрез минимална обработка на
-                  почвата съхраняваме влагата, ограничаваме ерозията и поддържаме по-добра почвена
-                  структура в дългосрочен план.
-                </p>
-              </div>
-
-              <div className="rounded-[2.5rem] border border-[#e5ddcc] bg-white p-8 shadow-[0_20px_60px_rgba(20,90,42,0.08)]">
-                <h3 className="mb-6 text-2xl font-black text-[#14311f]">Предимства</h3>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {benefits.map((benefit) => (
-                    <div
-                      key={benefit}
-                      className="rounded-2xl border border-[#eee6d7] bg-[#faf8f3] px-5 py-4 text-sm font-medium leading-6 text-stone-700"
-                    >
-                      {benefit}
-                    </div>
-                  ))}
+              <Reveal>
+                <div className="rounded-[2.5rem] bg-[linear-gradient(180deg,#163f27,#102f1d)] p-10 text-white shadow-[0_30px_80px_rgba(16,61,34,0.25)]">
+                  <p className="text-sm font-bold uppercase tracking-[0.28em] text-white/70">No-Till</p>
+                  <h2 className="mt-4 text-3xl font-black leading-tight md:text-5xl">
+                    Устойчиво земеделие без излишна намеса в почвата
+                  </h2>
+                  <p className="mt-6 max-w-xl leading-8 text-white/85">
+                    No-till технологията е в основата на нашата работа. Чрез минимална обработка на
+                    почвата съхраняваме влагата, ограничаваме ерозията и поддържаме по-добра почвена
+                    структура в дългосрочен план.
+                  </p>
                 </div>
-              </div>
+              </Reveal>
+
+              <Reveal delay={0.15}>
+                <div className="rounded-[2.5rem] border border-[#e5ddcc] bg-white p-8 shadow-[0_20px_60px_rgba(20,90,42,0.08)]">
+                  <h3 className="mb-6 text-2xl font-black text-[#14311f]">Предимства</h3>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {benefits.map((benefit) => (
+                      <div
+                        key={benefit}
+                        className="rounded-2xl border border-[#eee6d7] bg-[#faf8f3] px-5 py-4 text-sm font-medium leading-6 text-stone-700"
+                      >
+                        {benefit}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </Reveal>
             </div>
           </div>
         </section>
 
         <section id="map" className="pb-24">
           <div className="mx-auto max-w-7xl px-6">
-            <div className="mb-6">
+            <Reveal className="mb-6">
               <p className="text-sm font-bold uppercase tracking-[0.28em] text-[#145a2a]">
                 Локация
               </p>
               <h2 className="mt-3 text-3xl font-black text-[#14311f] md:text-5xl">
-                Google Maps
+                Намерете ни
               </h2>
               <p className="mt-4 max-w-2xl leading-8 text-stone-700">
                 Нашата база и основна дейност се развиват в този регион. Локацията позволява ефективна логистика, работа със земеделска техника и партньорства със земеделски и търговски компании.
               </p>
-            </div>
+            </Reveal>
 
-            <div className="overflow-hidden rounded-[2.5rem] border border-[#e6dece] bg-white p-3 shadow-[0_20px_60px_rgba(20,90,42,0.08)]">
-              <div className="aspect-[16/9] overflow-hidden rounded-[2rem]">
-                <iframe
-                  title="Google Maps location"
-                  src="https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d92434.62403006021!2d26.6716645!3d43.6152442!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x40af9f004e762c01%3A0x3fd39bdf76c3822d!2z0KDQsNC50LrQvtCyINCQ0LPRgNC-INCV0J7QntCU!5e0!3m2!1sbg!2sbg!4v1773074379741!5m2!1sbg!2sbg"
-                  width="100%"
-                  height="100%"
-                  style={{ border: 0 }}
-                  allowFullScreen=""
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  className="h-full w-full"
-                ></iframe>
+            <Reveal>
+              <div className="overflow-hidden rounded-[2.5rem] border border-[#e6dece] bg-white p-3 shadow-[0_20px_60px_rgba(20,90,42,0.08)]">
+                <div className="aspect-[16/9] overflow-hidden rounded-[2rem]">
+                  <iframe
+                    title="Google Maps location"
+                    src="https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d92434.62403006021!2d26.6716645!3d43.6152442!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x40af9f004e762c01%3A0x3fd39bdf76c3822d!2z0KDQsNC50LrQvtCyINCQ0LPRgNC-INCV0J7QntCU!5e0!3m2!1sbg!2sbg!4v1773074379741!5m2!1sbg!2sbg"
+                    width="100%"
+                    height="100%"
+                    style={{ border: 0 }}
+                    allowFullScreen=""
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    className="h-full w-full"
+                  ></iframe>
+                </div>
               </div>
-            </div>
+            </Reveal>
           </div>
         </section>
 
         <section id="contact" className="pb-24">
           <div className="mx-auto max-w-7xl px-6">
-            <div className="overflow-hidden rounded-[2.5rem] bg-[linear-gradient(135deg,#145a2a,#103d22)] shadow-[0_35px_90px_rgba(16,61,34,0.25)]">
-              <div className="grid gap-8 p-8 text-white lg:grid-cols-[0.9fr_1.1fr] lg:p-12">
-                <div>
-                  <p className="text-sm font-bold uppercase tracking-[0.28em] text-white/70">
-                    Контакти
-                  </p>
-                  <h2 className="mt-4 text-3xl font-black md:text-5xl">Свържете се с нас</h2>
-                  <p className="mt-5 max-w-xl leading-8 text-white/85">
-                    За актуални количества, условия за доставка и възможности за партньорство,
-                    изпратете запитване или се свържете директно с нас.
-                  </p>
+            <Reveal>
+              <div className="overflow-hidden rounded-[2.5rem] bg-[linear-gradient(135deg,#145a2a,#103d22)] shadow-[0_35px_90px_rgba(16,61,34,0.25)]">
+                <div className="grid gap-8 p-8 text-white lg:grid-cols-[0.9fr_1.1fr] lg:p-12">
+                  <div>
+                    <p className="text-sm font-bold uppercase tracking-[0.28em] text-white/70">
+                      Контакти
+                    </p>
+                    <h2 className="mt-4 text-3xl font-black md:text-5xl">Свържете се с нас</h2>
+                    <p className="mt-5 max-w-xl leading-8 text-white/85">
+                      За актуални количества, условия за доставка и възможности за партньорство,
+                      изпратете запитване или се свържете директно с нас.
+                    </p>
 
-                  <div className="mt-8 space-y-4 text-base text-white/90">
-                    <p><span className="font-bold text-white">Фирма:</span> RAYKOV NO-TILL AGRO ЕООД</p>
-                    <p><span className="font-bold text-white">Телефон:</span> +359 8XX XXX XXX</p>
-                    <p><span className="font-bold text-white">Имейл:</span> office@example.bg</p>
-                    <p><span className="font-bold text-white">Регион:</span> България</p>
-                    <p><span className="font-bold text-white">Локация:</span> Вижте ни на картата по-долу</p>
+                    <div className="mt-8 space-y-4 text-base text-white/90">
+                      <p><span className="font-bold text-white">Фирма:</span> RAYKOV NO-TILL AGRO ЕООД</p>
+                      <p>
+                        <span className="font-bold text-white">Телефон:</span>{' '}
+                        <a href="tel:+359898360605" className="transition hover:text-[#e8dfcb]">+359 898 360 605</a>
+                      </p>
+                      <p>
+                        <span className="font-bold text-white">Имейл:</span>{' '}
+                        <a href="mailto:svilenraykov@abv.bg" className="transition hover:text-[#e8dfcb]">svilenraykov@abv.bg</a>
+                      </p>
+                      <p><span className="font-bold text-white">Регион:</span> България</p>
+                      <p><span className="font-bold text-white">Локация:</span> Вижте ни на картата по-горе</p>
+                    </div>
                   </div>
-                </div>
 
-                <form
-                  onSubmit={handleSubmit}
-                  className="rounded-[2rem] border border-white/10 bg-white/10 p-6 backdrop-blur-xl"
-                >
-                  <div className="grid gap-5">
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-white/90">Име</label>
-                      <input
-                        type="text"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleInputChange}
-                        placeholder="Вашето име"
-                        className="w-full rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-white placeholder:text-white/45 outline-none transition focus:border-[#e8dfcb]"
-                      />
-                      {errors.name && (
-                        <p className="mt-2 text-sm text-red-200">{errors.name}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-white/90">Имейл</label>
-                      <input
-                        type="email"
-                        name="email"
-                        value={formData.email}
-                        onChange={handleInputChange}
-                        placeholder="Вашият имейл"
-                        className="w-full rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-white placeholder:text-white/45 outline-none transition focus:border-[#e8dfcb]"
-                      />
-                      {errors.email && (
-                        <p className="mt-2 text-sm text-red-200">{errors.email}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-white/90">Съобщение</label>
-                      <textarea
-                        rows="5"
-                        name="message"
-                        value={formData.message}
-                        onChange={handleInputChange}
-                        placeholder="Напишете вашето запитване"
-                        className="w-full rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-white placeholder:text-white/45 outline-none transition focus:border-[#e8dfcb]"
-                      />
-                      {errors.message && (
-                        <p className="mt-2 text-sm text-red-200">{errors.message}</p>
-                      )}
-                    </div>
-
-                    {successMessage && (
-                      <div className="rounded-xl border border-emerald-200/30 bg-emerald-100/10 px-4 py-3 text-sm text-emerald-100">
-                        {successMessage}
+                  <form
+                    onSubmit={handleSubmit}
+                    className="rounded-[2rem] border border-white/10 bg-white/10 p-6 backdrop-blur-xl"
+                  >
+                    <div className="grid gap-5">
+                      <div>
+                        <label htmlFor="name" className="mb-2 block text-sm font-medium text-white/90">Име</label>
+                        <input
+                          id="name"
+                          type="text"
+                          name="name"
+                          value={formData.name}
+                          onChange={handleInputChange}
+                          placeholder="Вашето име"
+                          className="w-full rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-white placeholder:text-white/45 outline-none transition focus:border-[#e8dfcb]"
+                        />
+                        {errors.name && (
+                          <p className="mt-2 text-sm text-red-200">{errors.name}</p>
+                        )}
                       </div>
-                    )}
 
-                    <button
-                      type="submit"
-                      className="rounded-xl bg-[#e8dfcb] px-6 py-3 text-sm font-bold uppercase tracking-[0.15em] text-[#103d22] transition hover:opacity-90"
-                    >
-                      Изпрати запитване
-                    </button>
-                  </div>
-                </form>
+                      <div>
+                        <label htmlFor="email" className="mb-2 block text-sm font-medium text-white/90">Имейл</label>
+                        <input
+                          id="email"
+                          type="email"
+                          name="email"
+                          value={formData.email}
+                          onChange={handleInputChange}
+                          placeholder="Вашият имейл"
+                          className="w-full rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-white placeholder:text-white/45 outline-none transition focus:border-[#e8dfcb]"
+                        />
+                        {errors.email && (
+                          <p className="mt-2 text-sm text-red-200">{errors.email}</p>
+                        )}
+                      </div>
+
+                      <div>
+                        <label htmlFor="message" className="mb-2 block text-sm font-medium text-white/90">Съобщение</label>
+                        <textarea
+                          id="message"
+                          rows="5"
+                          name="message"
+                          value={formData.message}
+                          onChange={handleInputChange}
+                          placeholder="Напишете вашето запитване"
+                          className="w-full rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-white placeholder:text-white/45 outline-none transition focus:border-[#e8dfcb]"
+                        />
+                        {errors.message && (
+                          <p className="mt-2 text-sm text-red-200">{errors.message}</p>
+                        )}
+                      </div>
+
+                      {successMessage && (
+                        <div className="rounded-xl border border-emerald-200/30 bg-emerald-100/10 px-4 py-3 text-sm text-emerald-100">
+                          {successMessage}
+                        </div>
+                      )}
+
+                      <button
+                        type="submit"
+                        className="rounded-xl bg-[#e8dfcb] px-6 py-3 text-sm font-bold uppercase tracking-[0.15em] text-[#103d22] transition hover:opacity-90"
+                      >
+                        Изпрати запитване
+                      </button>
+                    </div>
+                  </form>
+                </div>
               </div>
-            </div>
+            </Reveal>
           </div>
         </section>
       </main>
